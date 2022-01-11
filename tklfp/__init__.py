@@ -40,6 +40,7 @@ class TKLFP:
         assert len(is_excitatory) in [1, n_neurons]
         if type(elec_coords_mm) is not np.ndarray:
             elec_coords_mm = np.array(elec_coords_mm)
+        assert elec_coords_mm.shape[1] == 3
 
         ### calc ampltiude and delay for each neuron for each contact
         n_elec = elec_coords_mm.shape[0]
