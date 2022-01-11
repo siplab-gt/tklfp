@@ -1,5 +1,6 @@
+"""Lightweight implementation of Telenczuk 2020 kernel LFP approximation"""
 import numpy as np
-import numpy.typing as npt
+from numpy.typing import ArrayLike
 import scipy
 import pickle
 import importlib.resources as pkg_resources
@@ -25,15 +26,38 @@ params2020 = {
 
 
 class TKLFP:
+    """Implements kernel LFP approximation"""
+
     def __init__(
         self,
-        xs_mm,
-        ys_mm,
-        zs_mm,
-        is_excitatory,
-        elec_coords_mm=[[0, 0, 0]],
-        params=params2020,
+        xs_mm: ArrayLike,
+        ys_mm: ArrayLike,
+        zs_mm: ArrayLike,
+        is_excitatory: ArrayLike,
+        elec_coords_mm: ArrayLike = [[0, 0, 0]],
+        params: dict = params2020,
     ) -> None:
+        """Constructor: caches per-spike contributions to LFP for given neurons.
+
+        Parameters
+        ----------
+        xs_mm : npt.ArrayLike
+            Sequence of length N_n, contains X coordinates of N_n neurons in mm
+        ys_mm : npt.ArrayLike
+            Sequence of length N_n, contains Y coordinates of N_n neurons in mm
+        zs_mm : npt.ArrayLike
+            Sequence of length N_n, contains Z coordinates of N_n neurons in mm
+        is_excitatory : npt.ArrayLike
+            Sequence of length N_n, contains cell type of N_n neurons where
+            False (0) represents inhibitory and True (1) represents excitatory
+        elec_coords_mm : npt.ArrayLike, optional
+            Shape (N_e, 3), where N_e is the number of recording sites and the
+            three columns represent X, Y, and Z coordinates.
+            By default [[0, 0, 0]]
+        params : dict, optional
+            Dict containing parameters. See the default params2020 object for
+            required elements
+        """
 
         assert len(xs_mm) == len(ys_mm) == len(zs_mm)
         n_neurons = len(xs_mm)
@@ -70,9 +94,7 @@ class TKLFP:
             self._ss *= 2 * params["sig_i_ms"] ** 2
         else:
             A0[:, is_excitatory] = params["exc_A0_by_depth"](depths[:, is_excitatory])
-            A0[:, ~is_excitatory] = params["inh_A0_by_depth"](
-                depths[:, ~is_excitatory]
-            )
+            A0[:, ~is_excitatory] = params["inh_A0_by_depth"](depths[:, ~is_excitatory])
             self._ss[is_excitatory] = 2 * params["sig_e_ms"] ** 2
             self._ss[~is_excitatory] = 2 * params["sig_i_ms"] ** 2
 
@@ -82,10 +104,29 @@ class TKLFP:
 
     def compute(
         self,
-        i_spikes: npt.ArrayLike,
-        t_spikes_ms: npt.ArrayLike,
-        t_eval_ms: npt.ArrayLike,
-    ):
+        i_spikes: ArrayLike,
+        t_spikes_ms: ArrayLike,
+        t_eval_ms: ArrayLike,
+    ) -> np.ndarray:
+        """Computes the tklfp for given spikes at desired timepoints.
+
+        Parameters
+        ----------
+        i_spikes : ArrayLike[int]
+            Neuron indices of spikes. Must be between 0 and N_n,
+            corresponding to the parameters given on initialization.
+        t_spikes_ms : ArrayLike[float]
+            Times (in ms) of spikes. Must have same length as i_spikes.
+        t_eval_ms : ArrayLike[float]
+            Times (in ms) at which to evaluate LFP.
+
+        Returns
+        -------
+        tklfp : [np.ndarray]
+            An N_eval by N_elec array containing the computed tklfp
+            with one row for each timepoint and one column for each 
+            recording site.
+        """
         for arg in [i_spikes, t_spikes_ms, t_eval_ms]:
             assert isinstance(arg, (list, np.ndarray, tuple))
         # get values needed for neurons that spiked
