@@ -44,7 +44,9 @@ class TKLFP:
         ### calc ampltiude and delay for each neuron for each contact
         n_elec = elec_coords_mm.shape[0]
         dist = np.tile(
-            elec_coords_mm[:, :2].reshape(n_elec, 2, n_neurons), (1, 1, n_neurons)
+            elec_coords_mm[:, :2].reshape(n_elec, 2, 1), (1, 1, n_neurons)
+        ).astype(
+            "float64"
         )  # n_elec X 2 X n_neurons
         dist[:, 0, :] -= xs_mm
         dist[:, 1, :] -= ys_mm
@@ -58,18 +60,20 @@ class TKLFP:
         #     need 2:3 index so it remains a column ⬇
         depths = zs_mm - np.tile(elec_coords_mm[:, 2:3], (1, n_neurons))
         # 2 sigma squared, used in Gaussian kernel
-        self._ss = np.zeros(n_neurons)
+        self._ss = np.ones(n_neurons)
         if len(is_excitatory) == 1 and is_excitatory:
             A0 = params["exc_A0_by_depth"](depths)
-            self._ss[:] = 2 * params["sig_e_ms"] ** 2
+            self._ss *= 2 * params["sig_e_ms"] ** 2
         elif len(is_excitatory) == 1 and not is_excitatory:
             A0 = params["inh_A0_by_depth"](depths)
-            self._ss[:] = 2 * params["sig_i_ms"] ** 2
+            self._ss *= 2 * params["sig_i_ms"] ** 2
         else:
-            A0[is_excitatory] = params["exc_A0_by_depth"](depths)
-            A0[not is_excitatory] = params["inh_A0_by_depth"](depths)
+            A0[:, is_excitatory] = params["exc_A0_by_depth"](depths[:, is_excitatory])
+            A0[:, ~is_excitatory] = params["inh_A0_by_depth"](
+                depths[:, ~is_excitatory]
+            )
             self._ss[is_excitatory] = 2 * params["sig_e_ms"] ** 2
-            self._ss[not is_excitatory] = 2 * params["sig_i_ms"] ** 2
+            self._ss[~is_excitatory] = 2 * params["sig_i_ms"] ** 2
 
         self._amp = A0 * np.exp(-dist / params["lambda_mm"])
         # self._amp is also n_elec X n_neurons
