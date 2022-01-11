@@ -18,10 +18,10 @@ from tklfp import TKFLP
 tklfp = TKLFP(xs_mm, ys_mm, zs_mm, is_excitatory, elec_coords_mm)
 ```
 
-The first four arguments must all have length $N_n$ where $N_n$ is the number of neurons. `elec_coords_mm` must an $N_e \times 3$ array-like object, where $N_e$ is the number of recording sites.
+The first four arguments must all have the same length N_n, the total number of neurons. `elec_coords_mm` must an N_e by 3 array-like object, where N_e is the number of recording sites.
 
 ### Computing LFP
-LFP can then be computed with the neuron indices and times of spikes (indices must correspond to the coordinates and cell types given on initialization), as well as the timepoints to evaluate at (must be an iterable):
+LFP can then be computed with the neuron indices and times of spikes (indices must be between 0 and N_n - 1, corresponding to the parameters given on initialization), as well as the timepoints to evaluate at (must be an iterable):
 ```python
 lfp = tklfp.compute(i_n, t_ms, t_eval_ms)
 ```
@@ -34,4 +34,4 @@ The package uses [parameters from the original 2020 paper](https://github.com/kj
 tklfp = TKLFP(..., params=new_params)
 ```
 
-The new params must have the same content as the default [`tklfp.params2020`](https://github.com/kjohnsen/tklfp/blob/master/tklfp/__init__.py#:~:text=_sig_i%20%3D%202.1-,params2020%20%3D,-%7B). The `A0_by_depth` params are scipy interpolation objects, but could theoretically be any callable that will return $A_0$ (in μV) for an arbitrary depth (in mm).
+The new params must have the same content as the default [`tklfp.params2020`](https://github.com/kjohnsen/tklfp/blob/master/tklfp/__init__.py#:~:text=_sig_i%20%3D%202.1-,params2020%20%3D,-%7B). The `A0_by_depth` params are scipy interpolation objects, but could theoretically be any callable that will return A0 (in μV) for an arbitrary depth (in mm).
