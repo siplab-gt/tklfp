@@ -1,5 +1,7 @@
 # tklfp - Teleńczuk Kernel LFP
 
+[![DOI](https://zenodo.org/badge/440986279.svg)](https://zenodo.org/badge/latestdoi/440986279)
+
 This is a lightweight package for computing the kernel LFP approximation from 
 [Teleńczuk et al., 2020](https://www.sciencedirect.com/science/article/pii/S0165027020302946). See the original authors' demo code [here](https://doi.org/10.5281/zenodo.3866253).
 
