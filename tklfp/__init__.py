@@ -89,7 +89,7 @@ class TKLFP:
         # amplitude and width of kernel depend on cell type
         A0 = np.zeros(((n_elec, n_neurons)))
         #     need 2:3 index so it remains a column ⬇
-        depths = zs_mm - np.tile(elec_coords_mm[:, 2:3], (1, n_neurons))
+        depths = np.tile(elec_coords_mm[:, 2:3], (1, n_neurons)) - zs_mm
         # 2 sigma squared, used in Gaussian kernel
         self._ss = np.ones(n_neurons)
         A0[:, is_excitatory] = params["exc_A0_by_depth"](
