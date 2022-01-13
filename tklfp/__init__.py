@@ -61,12 +61,18 @@ class TKLFP:
 
         assert len(xs_mm) == len(ys_mm) == len(zs_mm)
         n_neurons = len(xs_mm)
-        assert len(is_excitatory) in [1, n_neurons]
+        if is_excitatory is not np.ndarray:
+            # reshape to ensure it's a 1D array
+            is_excitatory = np.array(is_excitatory).reshape((-1, ))
+        if len(is_excitatory) == 1:
+            is_excitatory = is_excitatory.repeat(n_neurons)
+        is_excitatory = is_excitatory.astype(bool)
+        assert len(is_excitatory) == n_neurons
         if type(elec_coords_mm) is not np.ndarray:
             elec_coords_mm = np.array(elec_coords_mm)
         assert elec_coords_mm.shape[1] == 3
 
-        ### calc ampltiude and delay for each neuron for each contact
+        # calc ampltiude and delay for each neuron for each contact
         n_elec = elec_coords_mm.shape[0]
         dist = np.tile(
             elec_coords_mm[:, :2].reshape(n_elec, 2, 1), (1, 1, n_neurons)
@@ -86,17 +92,12 @@ class TKLFP:
         depths = zs_mm - np.tile(elec_coords_mm[:, 2:3], (1, n_neurons))
         # 2 sigma squared, used in Gaussian kernel
         self._ss = np.ones(n_neurons)
-        if len(is_excitatory) == 1 and is_excitatory:
-            A0 = params["exc_A0_by_depth"](depths)
-            self._ss *= 2 * params["sig_e_ms"] ** 2
-        elif len(is_excitatory) == 1 and not is_excitatory:
-            A0 = params["inh_A0_by_depth"](depths)
-            self._ss *= 2 * params["sig_i_ms"] ** 2
-        else:
-            A0[:, is_excitatory] = params["exc_A0_by_depth"](depths[:, is_excitatory])
-            A0[:, ~is_excitatory] = params["inh_A0_by_depth"](depths[:, ~is_excitatory])
-            self._ss[is_excitatory] = 2 * params["sig_e_ms"] ** 2
-            self._ss[~is_excitatory] = 2 * params["sig_i_ms"] ** 2
+        A0[:, is_excitatory] = params["exc_A0_by_depth"](
+            depths[:, is_excitatory])
+        A0[:, ~is_excitatory] = params["inh_A0_by_depth"](
+            depths[:, ~is_excitatory])
+        self._ss[is_excitatory] = 2 * params["sig_e_ms"] ** 2
+        self._ss[~is_excitatory] = 2 * params["sig_i_ms"] ** 2
 
         self._amp = A0 * np.exp(-dist / params["lambda_mm"])
         # self._amp is also n_elec X n_neurons
@@ -142,7 +143,8 @@ class TKLFP:
         # will be n_eval X n_elec X n_spikes. can be broadcast with amp, delay, ss by aligning
         # last dims:       n_elec X n_spikes
         t = (
-            np.tile(t_eval_ms.reshape(n_eval, 1, 1), (1, n_elec, len(t_spikes_ms)))
+            np.tile(t_eval_ms.reshape(n_eval, 1, 1),
+                    (1, n_elec, len(t_spikes_ms)))
             - t_spikes_ms
             - delay
         )
@@ -152,3 +154,39 @@ class TKLFP:
         lfp = np.sum(contribs, axis=2)
         assert lfp.shape == (len(t_eval_ms), n_elec)
         return lfp
+
+    def compute_min_window_ms(self, uLFP_threshold_uV: float):
+        """Compute the window required to capture all uLFPs above threshold.
+
+        This is designed to facilitate computing the TKLFP from a buffer 
+        of fixed width, rather than the entire simulation history. It is
+        computed from the single neuron whose uLFP decays to the threshold
+        latest after the original spike.
+
+        Parameters
+        ----------
+        uLFP_threshold_uV : float
+            Threshold (in microvolts) above which no single uLFP can be 
+            ignored. i.e., the window must be wide enough that the uLFP 
+            from a past spike is captured until it decays to this value.
+
+        Returns
+        -------
+        float
+            The minimum window width, in ms, required to capture all
+            uLFPs above the amplitude threshold. If no uLFPs ever
+            exceed the threshold, 0 is returned, meaning that no 
+            window whatsoever is required to capture all supra-
+            threshold uLFPs, since there are none.
+        """
+        # Δ = t_eval - t_peak = t_eval - t_spike - delay
+        # ss = 2σ^2
+        # uLFP = amp * exp(-Δ^2 / ss)
+        # set uLFP equal to threshold and solve:
+        # Δ = sqrt(-ss ln(θ/amp))
+        # window = t_eval - t_spike = Δ + delay
+        # computes window for each neuron: return max
+        if np.all(uLFP_threshold_uV > np.abs(self._amp)):
+            return 0
+        delta = np.sqrt(-self._ss * np.log(uLFP_threshold_uV / np.abs(self._amp)))
+        return np.nanmax(delta + self._delay)
