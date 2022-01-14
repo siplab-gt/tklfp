@@ -63,7 +63,7 @@ class TKLFP:
         n_neurons = len(xs_mm)
         if is_excitatory is not np.ndarray:
             # reshape to ensure it's a 1D array
-            is_excitatory = np.array(is_excitatory).reshape((-1, ))
+            is_excitatory = np.array(is_excitatory).reshape((-1,))
         if len(is_excitatory) == 1:
             is_excitatory = is_excitatory.repeat(n_neurons)
         is_excitatory = is_excitatory.astype(bool)
@@ -92,10 +92,8 @@ class TKLFP:
         depths = np.tile(elec_coords_mm[:, 2:3], (1, n_neurons)) - zs_mm
         # 2 sigma squared, used in Gaussian kernel
         self._ss = np.ones(n_neurons)
-        A0[:, is_excitatory] = params["exc_A0_by_depth"](
-            depths[:, is_excitatory])
-        A0[:, ~is_excitatory] = params["inh_A0_by_depth"](
-            depths[:, ~is_excitatory])
+        A0[:, is_excitatory] = params["exc_A0_by_depth"](depths[:, is_excitatory])
+        A0[:, ~is_excitatory] = params["inh_A0_by_depth"](depths[:, ~is_excitatory])
         self._ss[is_excitatory] = 2 * params["sig_e_ms"] ** 2
         self._ss[~is_excitatory] = 2 * params["sig_i_ms"] ** 2
 
@@ -125,7 +123,7 @@ class TKLFP:
         -------
         tklfp : [np.ndarray]
             An N_eval by N_elec array containing the computed tklfp
-            with one row for each timepoint and one column for each 
+            with one row for each timepoint and one column for each
             recording site.
         """
         for arg in [i_spikes, t_spikes_ms, t_eval_ms]:
@@ -143,8 +141,7 @@ class TKLFP:
         # will be n_eval X n_elec X n_spikes. can be broadcast with amp, delay, ss by aligning
         # last dims:       n_elec X n_spikes
         t = (
-            np.tile(t_eval_ms.reshape(n_eval, 1, 1),
-                    (1, n_elec, len(t_spikes_ms)))
+            np.tile(t_eval_ms.reshape(n_eval, 1, 1), (1, n_elec, len(t_spikes_ms)))
             - t_spikes_ms
             - delay
         )
@@ -158,7 +155,7 @@ class TKLFP:
     def compute_min_window_ms(self, uLFP_threshold_uV: float):
         """Compute the window required to capture all uLFPs above threshold.
 
-        This is designed to facilitate computing the TKLFP from a buffer 
+        This is designed to facilitate computing the TKLFP from a buffer
         of fixed width, rather than the entire simulation history. It is
         computed from the single neuron whose uLFP decays to the threshold
         latest after the original spike.
@@ -166,8 +163,8 @@ class TKLFP:
         Parameters
         ----------
         uLFP_threshold_uV : float
-            Threshold (in microvolts) above which no single uLFP can be 
-            ignored. i.e., the window must be wide enough that the uLFP 
+            Threshold (in microvolts) above which no single uLFP can be
+            ignored. i.e., the window must be wide enough that the uLFP
             from a past spike is captured until it decays to this value.
 
         Returns
@@ -175,7 +172,7 @@ class TKLFP:
         float
             The minimum window width, in ms, required to capture all
             uLFPs above the amplitude threshold. If no uLFPs ever
-            exceed the threshold, 0 is returned, meaning that no 
+            exceed the threshold, 0 is returned, meaning that no
             window whatsoever is required to capture all supra-
             threshold uLFPs, since there are none.
         """
@@ -186,7 +183,11 @@ class TKLFP:
         # Δ = sqrt(-ss ln(θ/amp))
         # window = t_eval - t_spike = Δ + delay
         # computes window for each neuron: return max
-        if np.all(uLFP_threshold_uV > np.abs(self._amp)):
+        subthresh = uLFP_threshold_uV > np.abs(self._amp)
+        if np.all(subthresh):
             return 0
-        delta = np.sqrt(-self._ss * np.log(uLFP_threshold_uV / np.abs(self._amp)))
-        return np.nanmax(delta + self._delay)
+        delta = np.sqrt(
+            # take sqrt only above threshold
+            (-self._ss * np.log(uLFP_threshold_uV / np.abs(self._amp)))[~subthresh]
+        )
+        return np.max(delta + self._delay[~subthresh])
