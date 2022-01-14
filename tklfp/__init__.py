@@ -186,8 +186,9 @@ class TKLFP:
         subthresh = uLFP_threshold_uV > np.abs(self._amp)
         if np.all(subthresh):
             return 0
-        delta = np.sqrt(
-            # take sqrt only above threshold
-            (-self._ss * np.log(uLFP_threshold_uV / np.abs(self._amp)))[~subthresh]
-        )
+        with np.errstate(divide="ignore"):
+            delta = np.sqrt(
+                # take sqrt only above threshold
+                (-self._ss * np.log(uLFP_threshold_uV / np.abs(self._amp)))[~subthresh]
+            )
         return np.max(delta + self._delay[~subthresh])
