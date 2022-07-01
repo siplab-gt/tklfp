@@ -56,9 +56,11 @@ class TKLFP:
         elec_coords_mm : ArrayLike, optional
             Shape (N_e, 3), where N_e is the number of recording sites and the
             three columns represent X, Y, and Z coordinates.
-            By default [[0, 0, 0]]
+            By default [[0, 0, 0]].
         orientation : ArrayLike, optional
-            TODO
+            Represents which direction is "up"—towards the surface of the
+            cortex—for the neurons. It can be a 1x3 vector if orientation is
+            uniform, else an array of shape `(N_n, 3)`. [0, 0, 1] by default.
         params : dict, optional
             Dict containing parameters. See the default params2020 object for
             required elements

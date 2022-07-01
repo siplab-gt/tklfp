@@ -30,6 +30,11 @@ lfp = tklfp.compute(i_n, t_ms, t_eval_ms)
 
 A complete example, reworking the demo from the original paper, can be found [here](https://github.com/kjohnsen/tklfp/blob/master/notebooks/demo_lfp_kernel.ipynb). Basic usage information is also accessible in docstrings.
 
+### Cortical orientation
+The `TKLFP` constructor can also take an `orientation` argument which represents which direction is "up," that is, towards the surface of the cortex or parallel to the apical dendrites of pyramidal cells.
+The default is `[0, 0, 1]`, indicating that the positive z axis is "up."
+In the case your population isn't a sheet of neurons with uniform orientation (for a curved cortical area, for example), you can pass an N_n by 3 array containing the individual orientation vectors for all the neurons.
+
 ## Future development
 The package uses [parameters from the original 2020 paper](https://github.com/kjohnsen/tklfp/blob/master/notebooks/param_prep.ipynb) by default. This can be changed by passing in an alternate parameter dictionary on initialization:
 ```python
