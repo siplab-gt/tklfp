@@ -1,4 +1,5 @@
 """Lightweight implementation of Telenczuk 2020 kernel LFP approximation"""
+from typing import Union
 import numpy as np
 from numpy.typing import ArrayLike
 import scipy
@@ -33,72 +34,111 @@ class TKLFP:
         xs_mm: ArrayLike,
         ys_mm: ArrayLike,
         zs_mm: ArrayLike,
-        is_excitatory: ArrayLike,
+        is_excitatory: Union[ArrayLike, bool],
         elec_coords_mm: ArrayLike = [[0, 0, 0]],
+        orientation: ArrayLike = [0, 0, 1],
         params: dict = params2020,
     ) -> None:
         """Constructor: caches per-spike contributions to LFP for given neurons.
 
         Parameters
         ----------
-        xs_mm : npt.ArrayLike
+        xs_mm : ArrayLike
             Sequence of length N_n, contains X coordinates of N_n neurons in mm
-        ys_mm : npt.ArrayLike
+        ys_mm : ArrayLike
             Sequence of length N_n, contains Y coordinates of N_n neurons in mm
-        zs_mm : npt.ArrayLike
+        zs_mm : ArrayLike
             Sequence of length N_n, contains Z coordinates of N_n neurons in mm
-        is_excitatory : npt.ArrayLike
+        is_excitatory : ArrayLike | bool
             Sequence of length N_n, contains cell type of N_n neurons where
-            False (0) represents inhibitory and True (1) represents excitatory
-        elec_coords_mm : npt.ArrayLike, optional
+            False (0) represents inhibitory and True (1) represents excitatory.
+            Can also be simply True or False if all neurons have same type.
+        elec_coords_mm : ArrayLike, optional
             Shape (N_e, 3), where N_e is the number of recording sites and the
             three columns represent X, Y, and Z coordinates.
             By default [[0, 0, 0]]
+        orientation : ArrayLike, optional
+            TODO
         params : dict, optional
             Dict containing parameters. See the default params2020 object for
             required elements
         """
 
         assert len(xs_mm) == len(ys_mm) == len(zs_mm)
-        n_neurons = len(xs_mm)
+        n_nrns = len(xs_mm)
         if is_excitatory is not np.ndarray:
             # reshape to ensure it's a 1D array
             is_excitatory = np.array(is_excitatory).reshape((-1,))
         if len(is_excitatory) == 1:
-            is_excitatory = is_excitatory.repeat(n_neurons)
+            is_excitatory = is_excitatory.repeat(n_nrns)
         is_excitatory = is_excitatory.astype(bool)
-        assert len(is_excitatory) == n_neurons
+        assert len(is_excitatory) == n_nrns
         if type(elec_coords_mm) is not np.ndarray:
             elec_coords_mm = np.array(elec_coords_mm)
         assert elec_coords_mm.shape[1] == 3
+        ornt_shape = np.shape(orientation)
+        assert len(ornt_shape) in [1, 2] and ornt_shape[-1] == 3
+
+        # normalize orientation vectors
+        orientation = orientation / np.linalg.norm(orientation, axis=-1, keepdims=True)
 
         # calc ampltiude and delay for each neuron for each contact
+        # height h is "depth" in paper, in axis defined by apical dendrite
+        # r is radius: distance perpendicular to h
+        # d is distance from neuron to electrode
+        # + --- r --- * <- electrode
+        # |         /
+        # |       /
+        # h     dist
+        # |   /
+        # | /
+        # Δ  <- neuron (pointing up if pyramidal cell)
         n_elec = elec_coords_mm.shape[0]
-        dist = np.tile(
-            elec_coords_mm[:, :2].reshape(n_elec, 2, 1), (1, 1, n_neurons)
-        ).astype(
+        dist = np.tile(np.expand_dims(elec_coords_mm, axis=1), (1, n_nrns, 1)).astype(
             "float64"
-        )  # n_elec X 2 X n_neurons
-        dist[:, 0, :] -= xs_mm
-        dist[:, 1, :] -= ys_mm
-        dist = np.sqrt(np.sum(dist ** 2, axis=1))  # n_elec X n_neurons
+        )  # n_elec X n_nrns X 3
+        dist[:, :, 0] -= xs_mm
+        dist[:, :, 1] -= ys_mm
+        dist[:, :, 2] -= zs_mm
+
+        # theta = arccos(o*d/(||o||*||d||))
+        norm_dist = np.linalg.norm(dist, axis=2)  # shape (n_elec, n_nrns)
+        # since 0 dist leads to division by 0 and numerator of 0 is "invalid"
+        old_settings = np.seterr(divide="ignore", invalid="ignore")
+        theta = np.nan_to_num(
+            np.arccos(
+                np.sum(
+                    orientation * dist, axis=2
+                )  # multiply elementwise then sum across x,y,z to get dot product
+                / (1 * norm_dist)  # norm of all orientation vectors should be 1
+            )
+        )  # shape (n_elec, n_nrns)
+        np.seterr(**old_settings)
+
+        h = norm_dist * np.cos(theta)  # shape (n_elec, n_nrns)
+        r = norm_dist * np.sin(theta)  # shape (n_elec, n_nrns)
+
+        # d = np.sqrt(np.sum(d**2, axis=1))  # n_elec X n_nrns
+
+        # originally used lateral distance r here, but the paper
+        # actually just says "distance". so using ||d|| instead
         # dist in mm, va in m/s, so dist/va will be in ms
-        self._delay = params["d_ms"] + dist / params["va_m_s"]
-        # self._delay is n_elec X n_neurons
+        self._delay = params["d_ms"] + norm_dist / params["va_m_s"]
+        # self._delay is n_elec X n_nrns
 
         # amplitude and width of kernel depend on cell type
-        A0 = np.zeros(((n_elec, n_neurons)))
-        #     need 2:3 index so it remains a column ⬇
-        depths = np.tile(elec_coords_mm[:, 2:3], (1, n_neurons)) - zs_mm
+        A0 = np.zeros(((n_elec, n_nrns)))
         # 2 sigma squared, used in Gaussian kernel
-        self._ss = np.ones(n_neurons)
-        A0[:, is_excitatory] = params["exc_A0_by_depth"](depths[:, is_excitatory])
-        A0[:, ~is_excitatory] = params["inh_A0_by_depth"](depths[:, ~is_excitatory])
+        self._ss = np.ones(n_nrns)
+        A0[:, is_excitatory] = params["exc_A0_by_depth"](h[:, is_excitatory])
+        A0[:, ~is_excitatory] = params["inh_A0_by_depth"](h[:, ~is_excitatory])
         self._ss[is_excitatory] = 2 * params["sig_e_ms"] ** 2
         self._ss[~is_excitatory] = 2 * params["sig_i_ms"] ** 2
 
-        self._amp = A0 * np.exp(-dist / params["lambda_mm"])
-        # self._amp is also n_elec X n_neurons
+        # originally used lateral distance r here, but the paper
+        # actually just says "distance". so using ||d|| instead
+        self._amp = A0 * np.exp(-norm_dist / params["lambda_mm"])
+        # self._amp is also n_elec X n_nrns
         self.params = params
 
     def compute(
@@ -146,7 +186,7 @@ class TKLFP:
             - delay
         )
         # multiply amplitude by temporal kernel:
-        contribs = amp * np.exp(-(t ** 2) / ss)
+        contribs = amp * np.exp(-(t**2) / ss)
         # sum over spikes and return. should be n_eval X n_elec
         lfp = np.sum(contribs, axis=2)
         assert lfp.shape == (len(t_eval_ms), n_elec)

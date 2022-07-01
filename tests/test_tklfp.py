@@ -29,7 +29,7 @@ def test_horizontal_profile():
         (True, [False, True, True, False], [True, False, False]),
         (False, [False, True, False, True], [True, False, True]),
     ],
-    ids=["exc", "inh"]
+    ids=["exc", "inh"],
 )
 def test_depth_profile(is_exc, positive, increasing):
     # test with electrode contacts at 4 canonical depths
@@ -61,7 +61,81 @@ def test_time_profile():
             )
 
 
-d = 0.4
+@pytest.mark.parametrize("seed", [1830, 1847])
+@pytest.mark.parametrize("n_elec", [1, 3])
+@pytest.mark.parametrize("is_exc", [True, False])
+def test_orientation_sensitivity(seed, n_elec, is_exc):
+    n_nrns = 4
+    rng = np.random.default_rng(seed)
+    # all neurons in the same spot
+    c = np.zeros((n_nrns,))
+    # but random orientations
+    orientation = rng.random((n_nrns, 3))
+    tklfp = TKLFP(c, c, c, is_exc, rng.random((n_elec, 3)), orientation)
+    # here the trick is that each neuron should produce sth different since
+    # they are all oriented differently
+    t_eval_ms = [5, 15]
+    results = np.zeros((len(t_eval_ms), n_elec, n_nrns))  # n_eval X n_elec X n_nrns
+    for i_nrn in range(n_nrns):
+        results[:, :, i_nrn] = tklfp.compute([i_nrn], [0], t_eval_ms)
+    # for each neuron, make sure the lfp output doesn't equal that of
+    # any of the neurons after it (make sure none match)
+    for i_nrn in range(n_nrns - 1):
+        # take one slice of results to broadcast and compare to rest
+        assert (
+            not (results[:, :, i_nrn : i_nrn + 1] == results[:, :, i_nrn + 1 :])
+            .all(axis=(0, 1))
+            .any()
+        )  # condense along time and electrodes before checking for any matches
+
+
+def _rand_rot_mat(rng: np.random.Generator = np.random.default_rng()):
+    τ = 2 * np.pi
+    θxy, θyz = τ * rng.random(2)
+    # multiply rotation matrices for xy and yz planes together
+    rot_mat = np.array(
+        [[np.cos(θxy), -np.sin(θxy), 0], [np.sin(θxy), np.cos(θxy), 0], [0, 0, 1]]
+    ) @ np.array(
+        [[1, 0, 0], [0, np.cos(θyz), -np.sin(θyz)], [0, np.sin(θyz), np.cos(θyz)]]
+    )
+    return rot_mat.T  # transpose for right instead of left multiplication
+
+
+@pytest.mark.parametrize("seed", [421, 385])
+@pytest.mark.parametrize("n_nrns", [1, 4])
+@pytest.mark.parametrize("n_elec", [1, 3])
+@pytest.mark.parametrize("is_exc", [True, False])
+def test_rotation_invariance(seed, n_nrns, n_elec, is_exc):
+    """If orientations work correctly, we should be able to rotate the whole system"""
+    rng = np.random.default_rng(seed)
+    c = rng.random((n_nrns, 3))
+    orientation = rng.random((n_nrns, 3))
+    elec_coords = rng.random((n_elec, 3))
+    tklfp = TKLFP(c[:, 0], c[:, 1], c[:, 2], is_exc, elec_coords, orientation)
+    # now if we rotate both the neurons, orientations, and the electrode coordinates
+    # they should have the same relative positions yield the same results every time
+    n_spikes = 10
+    i_spikes = rng.integers(0, n_nrns, size=(n_spikes,))
+    # spikes from 0 to 10 ms
+    t_spikes_ms = 10 * rng.random((n_spikes,))
+    t_eval_ms = [10, 20, 30]
+    lfp = tklfp.compute(i_spikes, t_spikes_ms, t_eval_ms)
+    for i_rot in range(6):  # try 6 rotations
+        rot_mat = _rand_rot_mat(rng)
+        # rotate with right-multiplication for convenience (since mats are nx3)
+        c_rot = c @ rot_mat
+        tklfp = TKLFP(
+            c_rot[:, 0],
+            c_rot[:, 1],
+            c_rot[:, 2],
+            is_exc,
+            elec_coords @ rot_mat,
+            orientation @ rot_mat,
+        )
+        assert np.isclose(lfp, tklfp.compute(i_spikes, t_spikes_ms, t_eval_ms)).all()
+
+
+d = -0.4  # negative coordinate to test positive electrode depth
 
 
 def _plot_test(t1, t2, y1, z1):
@@ -77,15 +151,18 @@ def _plot_test(t1, t2, y1, z1):
 @pytest.mark.parametrize(
     "type1, type2, y1, z1, win1_gt_win2",
     [
-        # equal, so not win1 not greater than win2
+        # equal, so win1 not greater than win2
         ("e", "e", 0, 0, False),
         # neuron1 has lower amp but later peak
         ("e", "e", d, 0, True),
-        # window smaller with only vertical distance since same time but smaller
+        # neuron1 has later peak, but even lower amp b/c of hor and ver distance
         ("e", "e", 0, d, False),
-        ("i", "i", 0, 0, False),  # equal
+        # equal
+        ("i", "i", 0, 0, False),
+        # window bigger with distance, later peak
         ("i", "i", d, 0, True),
-        ("i", "i", 0, d, False),
+        ("i", "i", 0, d, True),
+        # greater amp for I than E
         ("i", "e", 0, 0, False),
         # neuron1 has later peak but lower amplitude and spread
         ("i", "e", d, 0, False),
@@ -106,7 +183,7 @@ def test_min_window_type_and_distance(type1, type2, y1, z1, win1_gt_win2):
 
 @pytest.mark.parametrize("is_exc", [True, False], ids=["exc", "inh"])
 def test_min_window_threshold(is_exc):
-    thresholds = [10 ** p for p in range(-10, 3)]
+    thresholds = [10**p for p in range(-10, 3)]
     tklfp = TKLFP([0], [0], [0], is_exc)
     windows = np.asarray([tklfp.compute_min_window_ms(th) for th in thresholds])
     # window widths should monotonically decrease as the threshold increases
