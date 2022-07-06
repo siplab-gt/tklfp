@@ -71,7 +71,6 @@ def test_orientation_sensitivity(seed, n_elec, is_exc):
     c = np.zeros((n_nrns,))
     # but random orientations
     orientation = 2 * rng.random((n_nrns, 3)) - 1
-    # orientation = rng.random((n_nrns, 3))
     tklfp = TKLFP(c, c, c, is_exc, 2 * rng.random((n_elec, 3)) - 1, orientation)
     # here the trick is that each neuron should produce sth different since
     # they are all oriented differently
