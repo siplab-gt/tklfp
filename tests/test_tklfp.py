@@ -70,8 +70,9 @@ def test_orientation_sensitivity(seed, n_elec, is_exc):
     # all neurons in the same spot
     c = np.zeros((n_nrns,))
     # but random orientations
-    orientation = rng.random((n_nrns, 3))
-    tklfp = TKLFP(c, c, c, is_exc, rng.random((n_elec, 3)), orientation)
+    orientation = 2 * rng.random((n_nrns, 3)) - 1
+    # orientation = rng.random((n_nrns, 3))
+    tklfp = TKLFP(c, c, c, is_exc, 2 * rng.random((n_elec, 3)) - 1, orientation)
     # here the trick is that each neuron should produce sth different since
     # they are all oriented differently
     t_eval_ms = [5, 15]
@@ -108,9 +109,9 @@ def _rand_rot_mat(rng: np.random.Generator = np.random.default_rng()):
 def test_rotation_invariance(seed, n_nrns, n_elec, is_exc):
     """If orientations work correctly, we should be able to rotate the whole system"""
     rng = np.random.default_rng(seed)
-    c = rng.random((n_nrns, 3))
-    orientation = rng.random((n_nrns, 3))
-    elec_coords = rng.random((n_elec, 3))
+    c = 2 * rng.random((n_nrns, 3)) - 1
+    orientation = 2 * rng.random((n_nrns, 3)) - 1
+    elec_coords = 2 * rng.random((n_elec, 3)) - 1
     tklfp = TKLFP(c[:, 0], c[:, 1], c[:, 2], is_exc, elec_coords, orientation)
     # now if we rotate both the neurons, orientations, and the electrode coordinates
     # they should have the same relative positions yield the same results every time
