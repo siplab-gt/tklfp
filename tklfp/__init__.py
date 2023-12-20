@@ -1,15 +1,18 @@
 """Lightweight implementation of Telenczuk 2020 kernel LFP approximation"""
-from typing import Union
-import numpy as np
-from numpy.typing import ArrayLike
-import scipy
 import pickle
-import importlib.resources as pkg_resources
+from typing import Union
+
+import numpy as np
+import scipy  # noqa: F401
+from importlib_resources import files
+from numpy.typing import ArrayLike
 
 
 def _load_uLFP_A0_profile(fname):
-    with pkg_resources.open_binary(__package__, fname) as f:
+    # with open_binary(__package__, fname) as f:
+    with files(__package__).joinpath(fname).open("rb") as f:
         A0_profile = pickle.load(f)
+
     return A0_profile
 
 

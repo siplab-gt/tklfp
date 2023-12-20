@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import pytest
 
 from tklfp import TKLFP
@@ -143,6 +142,7 @@ def _plot_test(t1, t2, y1, z1):
     t = np.linspace(0, 25)
     lfp1 = TKLFP([0], [y1], [z1], t1).compute([0], [0], t)
     lfp2 = TKLFP([0], [0], [0], t2).compute([0], [0], t)
+    import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
     ax.plot(t, lfp1)
     ax.plot(t, lfp2)
