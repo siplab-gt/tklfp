@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tklfp"
+dynamic = ["version"]
+description = "A minimal package for computing the kernel LFP approximation from Telenczuk et al., 2020"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Kyle Johnsen", email = "kjohnsen@gatech.edu" }]
+keywords = ['neuroscience', 'kernel', 'LFP', 'Telenczuk', 'spikes']
+classifiers = [
+    "Natural Language :: English",
+    "Intended Audience :: Science/Research",
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = ['numpy', 'scipy', 'importlib_resources']
+
+[project.urls]
+Repository = "https://github.com/kjohnsen/tklfp/tree/master/"
+Documentation = "https://kjohnsen.github.io//"
+
+[tool.setuptools.dynamic]
+version = { attr = "tklfp.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["tklfp"]
+
+[tool.nbdev]
+branch = 'master'

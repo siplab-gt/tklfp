@@ -1,3 +1,4 @@
+__version__ = "0.3.0"
 """Lightweight implementation of Telenczuk 2020 kernel LFP approximation"""
 import pickle
 from typing import Union
