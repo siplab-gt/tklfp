@@ -46,7 +46,7 @@ The package uses [parameters from the original 2020 paper](https://github.com/si
 tklfp = TKLFP(..., params=new_params)
 ```
 
-The new params must have the same content as the default [`tklfp.params2020`](https://github.com/siplab-gt/tklfp/blob/master/tklfp/__init__.py#:~:text=_sig_i%20%3D%202.1-,params2020%20%3D,-%7B). The `A0_by_depth` params are scipy interpolation objects, but could theoretically be any callable that will return A0 (in μV) for an arbitrary depth (in mm).
+The new params must have the same content as the default [`tklfp.params2020`](https://github.com/siplab-gt/tklfp/blob/master/tklfp/__init__.py#:~:text=_sig_i%20%3D%202.1-,params2020%20%3D,-%7B). The `exc_A0_by_depth` and `inh_A0_by_depth` params are scipy interpolation objects built dynamically from the package's CSV data, but could theoretically be any callable that will return A0 (in μV) for an arbitrary depth (in mm).
 
 ## Development
 For development, you can install the package in editable mode with development dependencies:

@@ -2,5 +2,5 @@ include settings.ini
 include LICENSE
 include CONTRIBUTING.md
 include README.md
-include tklfp/*.pkl
+include tklfp/*.csv
 recursive-exclude * __pycache__

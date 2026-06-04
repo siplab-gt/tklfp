@@ -1,21 +1,57 @@
 __version__ = "0.3.0"
 """Lightweight implementation of Telenczuk 2020 kernel LFP approximation"""
-import pickle
+import csv
 from typing import Union
-
 import numpy as np
-import scipy  # noqa: F401
 from importlib_resources import files
 from numpy.typing import ArrayLike
+from scipy.interpolate import interp1d
 
 
-def _load_uLFP_A0_profile(fname):
-    # with open_binary(__package__, fname) as f:
-    with files(__package__).joinpath(fname).open("rb") as f:
-        A0_profile = pickle.load(f)
+def read_data(fname):
+    try:
+        with files(__package__).joinpath(fname).open("r") as csvfile:
+            r = csv.reader(csvfile)
+            rows = []
+            for row in r:
+                rows.append(row)
+            return np.array(rows, dtype=float)
+    except (FileNotFoundError, ModuleNotFoundError, ValueError):
+        with open(fname, "r") as csvfile:
+            r = csv.reader(csvfile)
+            rows = []
+            for row in r:
+                rows.append(row)
+            return np.array(rows, dtype=float)
 
-    return A0_profile
 
+def clean_data(depth_amp, table_amp_values):
+    depth_amp = np.vstack((depth_amp, [800, 0]))
+    depth_amp[:, 0] = np.around(depth_amp[:, 0], -1)
+    depth_amp[[0, 4, 8, 12], 1] = table_amp_values
+    return depth_amp
+
+
+def _load_uLFP_A0_profile(fname, table_amp_values):
+    depth_amp = read_data(fname)
+    depth_amp = clean_data(depth_amp, table_amp_values)
+
+    data_mod = depth_amp.copy()
+    data_mod[:, 1] /= 10
+    npad = 10  # adding multiple zeros will prevent spline interp overshoot
+    deep_padding = np.zeros((npad, 2))
+    deep_padding[:, 0] = np.linspace(-700, -600, npad)
+    sup_padding = np.zeros((npad, 2))
+    sup_padding[:, 0] = np.linspace(1000, 1100, npad)
+    data_mod = np.vstack([deep_padding, data_mod, sup_padding])
+    data_mod[:, 0] /= 1000
+    return interp1d(
+        data_mod[:, 0], data_mod[:, 1], kind="cubic", fill_value=0, bounds_error=False
+    )
+
+
+f_exc = _load_uLFP_A0_profile("fig5a-points.csv", [-1.6, 4.8, 2.4, -0.8])
+f_inh = _load_uLFP_A0_profile("fig5b-points.csv", [-2, 30, -12, 3])
 
 ######### PARAMETERS #############
 _sig_i = 2.1
@@ -25,8 +61,8 @@ params2020 = {
     "sig_i_ms": _sig_i,  # std-dev of ihibition (in ms)
     "sig_e_ms": 1.5 * _sig_i,  # std-dev for excitation
     "d_ms": 10.4,  # constant delay
-    "exc_A0_by_depth": _load_uLFP_A0_profile("exc_A0_by_depth.pkl"),
-    "inh_A0_by_depth": _load_uLFP_A0_profile("inh_A0_by_depth.pkl"),
+    "exc_A0_by_depth": f_exc,
+    "inh_A0_by_depth": f_inh,
 }
 
 
