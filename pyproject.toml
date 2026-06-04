@@ -25,6 +25,8 @@ dev = [
     "matplotlib",
     "jupyter",
     "pytest",
+    "nbdev",
+    "ruff",
 ]
 
 [project.urls]
