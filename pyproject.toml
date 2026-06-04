@@ -21,17 +21,10 @@ classifiers = [
 dependencies = ['numpy', 'scipy', 'importlib_resources']
 
 [project.optional-dependencies]
-dev = [
-    "matplotlib",
-    "jupyter",
-    "pytest",
-    "nbdev",
-    "ruff",
-]
+dev = ["matplotlib", "jupyter", "pytest", "nbdev", "ruff"]
 
 [project.urls]
-Repository = "https://github.com/kjohnsen/tklfp/tree/master/"
-Documentation = "https://kjohnsen.github.io//"
+Repository = "https://github.com/siplab-gt/tklfp/tree/master/"
 
 [tool.setuptools.dynamic]
 version = { attr = "tklfp.__version__" }
