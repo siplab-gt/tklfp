@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 
 all: release
-.PHONY: all release conda_release pypi clean dict
+.PHONY: all release conda_release pypi clean dict scrub
 
 release: pypi
 	fastrelease_conda_package --upload_user fastai
@@ -19,4 +19,9 @@ dist: clean
 
 clean:
 	rm -rf dist
+
+scrub:
+	ruff format
+	nbdev-clean --fname notebooks
+
 
