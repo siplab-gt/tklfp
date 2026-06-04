@@ -39,7 +39,9 @@ def test_depth_profile(is_exc, positive, increasing):
         is_exc,
         elec_coords_mm=[[0, 0, -0.4], [0, 0, 0], [0, 0, 0.4], [0, 0, 0.8]],
     ).compute(
-        [0], [0], [tklfp.params2020["d_ms"]]  # measure at peak
+        [0],
+        [0],
+        [tklfp.params2020["d_ms"]],  # measure at peak
     )
     assert np.all((lfp > 0) == positive)
     assert np.all((np.diff(lfp) > 0) == increasing)
@@ -143,6 +145,7 @@ def _plot_test(t1, t2, y1, z1):
     lfp1 = TKLFP([0], [y1], [z1], t1).compute([0], [0], t)
     lfp2 = TKLFP([0], [0], [0], t2).compute([0], [0], t)
     import matplotlib.pyplot as plt
+
     fig, ax = plt.subplots()
     ax.plot(t, lfp1)
     ax.plot(t, lfp2)
