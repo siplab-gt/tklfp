@@ -59,6 +59,11 @@ To format python files (via `ruff`) and clean notebooks (via `nbdev-clean`) befo
 make scrub
 ```
 
+To build and publish the package to PyPI, run:
+```bash
+make release
+```
+
 ## Citation
 Please cite the [publication for the Cleo simulator](https://www.biorxiv.org/content/10.1101/2023.01.27.525963v1) if you use this software in your research.
 You may also cite the [Zenodo DOI](https://zenodo.org/badge/latestdoi/440986279) for this repository.
