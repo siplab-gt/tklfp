@@ -20,6 +20,13 @@ classifiers = [
 ]
 dependencies = ['numpy', 'scipy', 'importlib_resources']
 
+[project.optional-dependencies]
+dev = [
+    "matplotlib",
+    "jupyter",
+    "pytest",
+]
+
 [project.urls]
 Repository = "https://github.com/kjohnsen/tklfp/tree/master/"
 Documentation = "https://kjohnsen.github.io//"

@@ -15,6 +15,11 @@ Simply install from pypi:
 pip install tklfp
 ```
 
+For development, you can install the package in editable mode with development dependencies:
+```bash
+pip install -e ".[dev]"
+```
+
 ## How to use:
 
 ### Initialization
